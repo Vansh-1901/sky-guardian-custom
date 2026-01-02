@@ -73,7 +73,7 @@ const Index: React.FC = () => {
 
           {/* Right Panel */}
           <div className="col-span-12 lg:col-span-3 space-y-4">
-            <FeatureTabs />
+            <FeatureTabs drones={state.drones} targets={state.targets} />
             <DroneList drones={state.drones} />
           </div>
         </div>
