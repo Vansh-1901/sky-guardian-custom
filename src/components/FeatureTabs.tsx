@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Layers, Brain, Radio, Navigation, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Layers, Brain, Radio, Navigation, AlertTriangle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import ArchitecturePanel from './FeaturePanels/ArchitecturePanel';
 import AlgorithmsPanel from './FeaturePanels/AlgorithmsPanel';
 import CommunicationPanel from './FeaturePanels/CommunicationPanel';
 import NavigationPanel from './FeaturePanels/NavigationPanel';
 import ThreatPanel from './FeaturePanels/ThreatPanel';
+import AIPanel from './FeaturePanels/AIPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Drone, Target } from '@/types/drone';
 
 const tabs = [
+  { id: 'ai', label: 'AI', icon: Sparkles },
   { id: 'architecture', label: 'Architecture', icon: Layers },
   { id: 'algorithms', label: 'Algorithms', icon: Brain },
   { id: 'communication', label: 'Comms', icon: Radio },
@@ -17,12 +20,19 @@ const tabs = [
 
 type TabId = typeof tabs[number]['id'];
 
-const FeatureTabs: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabId>('architecture');
+interface FeatureTabsProps {
+  drones?: Drone[];
+  targets?: Target[];
+}
+
+const FeatureTabs: React.FC<FeatureTabsProps> = ({ drones = [], targets = [] }) => {
+  const [activeTab, setActiveTab] = useState<TabId>('ai');
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const renderPanel = () => {
     switch (activeTab) {
+      case 'ai':
+        return <AIPanel drones={drones} targets={targets} />;
       case 'architecture':
         return <ArchitecturePanel />;
       case 'algorithms':
@@ -34,7 +44,7 @@ const FeatureTabs: React.FC = () => {
       case 'threats':
         return <ThreatPanel />;
       default:
-        return <ArchitecturePanel />;
+        return <AIPanel drones={drones} targets={targets} />;
     }
   };
 
