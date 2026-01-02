@@ -81,7 +81,7 @@ const MainTabs: React.FC<MainTabsProps> = ({
                   onReset={onReset}
                 />
               </div>
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3 h-[400px]">
                 <TacticalMap
                   drones={state.drones}
                   jammingZones={state.jammingZones}
