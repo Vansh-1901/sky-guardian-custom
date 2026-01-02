@@ -2,8 +2,6 @@ import React from 'react';
 import { useSimulation } from '@/hooks/useSimulation';
 import Header from '@/components/Header';
 import MainTabs from '@/components/MainTabs';
-import DecisionTaskbar from '@/components/DecisionTaskbar';
-import Legend from '@/components/Legend';
 
 const Index: React.FC = () => {
   const {
@@ -38,12 +36,6 @@ const Index: React.FC = () => {
           />
         </div>
       </div>
-
-      {/* AI Decision Taskbar - Fixed Bottom */}
-      <DecisionTaskbar 
-        drones={state.drones} 
-        isRunning={state.simulationRunning} 
-      />
 
       {/* Footer */}
       <footer className="tactical-panel mx-4 mb-4 p-3">

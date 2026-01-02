@@ -18,7 +18,6 @@ import { Drone, Target, JammingZone, MeshLink, SimulationMetrics } from '@/types
 
 const mainTabs = [
   { id: 'mission', label: 'Mission Control', icon: Settings },
-  { id: 'tactical', label: 'Tactical Overview', icon: Map },
   { id: 'features', label: 'System Features', icon: Layers },
   { id: 'status', label: 'System Status', icon: Activity },
   { id: 'swarm', label: 'Swarm Roster', icon: Users },
@@ -54,48 +53,43 @@ const MainTabs: React.FC<MainTabsProps> = ({
   onToggleJamming,
   onReset,
 }) => {
-  const [activeTab, setActiveTab] = useState<MainTabId>('tactical');
+  const [activeTab, setActiveTab] = useState<MainTabId>('mission');
 
   const renderContent = () => {
     switch (activeTab) {
       case 'mission':
         return (
-          <div className="p-4">
-            <h2 className="font-tactical text-lg text-primary tracking-wider mb-4">
-              MISSION CONTROL
-            </h2>
-            <div className="max-w-md">
-              <ControlPanel
-                isRunning={state.simulationRunning}
-                gpsEnabled={state.gpsEnabled}
-                jammingActive={state.jammingActive}
-                onToggleSimulation={onToggleSimulation}
-                onToggleGPS={onToggleGPS}
-                onToggleJamming={onToggleJamming}
-                onReset={onReset}
-              />
-            </div>
-          </div>
-        );
-
-      case 'tactical':
-        return (
-          <div className="p-4 h-full">
+          <div className="p-4 h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-tactical text-lg text-primary tracking-wider">
-                TACTICAL OVERVIEW
+                MISSION CONTROL
               </h2>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>GRID: 40m</span>
                 <span>SCALE: 1:1000</span>
               </div>
             </div>
-            <TacticalMap
-              drones={state.drones}
-              jammingZones={state.jammingZones}
-              targets={state.targets}
-              meshLinks={state.meshLinks}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
+              <div className="lg:col-span-1">
+                <ControlPanel
+                  isRunning={state.simulationRunning}
+                  gpsEnabled={state.gpsEnabled}
+                  jammingActive={state.jammingActive}
+                  onToggleSimulation={onToggleSimulation}
+                  onToggleGPS={onToggleGPS}
+                  onToggleJamming={onToggleJamming}
+                  onReset={onReset}
+                />
+              </div>
+              <div className="lg:col-span-3">
+                <TacticalMap
+                  drones={state.drones}
+                  jammingZones={state.jammingZones}
+                  targets={state.targets}
+                  meshLinks={state.meshLinks}
+                />
+              </div>
+            </div>
           </div>
         );
 
