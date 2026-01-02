@@ -1,13 +1,9 @@
 import React from 'react';
 import { useSimulation } from '@/hooks/useSimulation';
 import Header from '@/components/Header';
-import TacticalMap from '@/components/TacticalMap';
-import StatusPanel from '@/components/StatusPanel';
-import ControlPanel from '@/components/ControlPanel';
-import DroneList from '@/components/DroneList';
-import Legend from '@/components/Legend';
+import MainTabs from '@/components/MainTabs';
 import DecisionTaskbar from '@/components/DecisionTaskbar';
-import FeatureTabs from '@/components/FeatureTabs';
+import Legend from '@/components/Legend';
 
 const Index: React.FC = () => {
   const {
@@ -28,54 +24,18 @@ const Index: React.FC = () => {
         <div className="scan-line w-full h-32" />
       </div>
 
-      <div className="container mx-auto p-4 space-y-4 flex-1">
+      <div className="container mx-auto p-4 flex-1 flex flex-col">
         <Header />
 
-        <div className="grid grid-cols-12 gap-4">
-          {/* Left Panel */}
-          <div className="col-span-12 lg:col-span-3 space-y-4">
-            <ControlPanel
-              isRunning={state.simulationRunning}
-              gpsEnabled={state.gpsEnabled}
-              jammingActive={state.jammingActive}
-              onToggleSimulation={toggleSimulation}
-              onToggleGPS={toggleGPS}
-              onToggleJamming={toggleJamming}
-              onReset={resetSimulation}
-            />
-            <StatusPanel
-              metrics={metrics}
-              timeElapsed={state.timeElapsed}
-              missionStatus={state.missionStatus}
-            />
-          </div>
-
-          {/* Center - Tactical Map */}
-          <div className="col-span-12 lg:col-span-6">
-            <div className="tactical-panel p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-tactical text-sm text-primary tracking-wider">
-                  TACTICAL OVERVIEW
-                </h2>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>GRID: 40m</span>
-                  <span>SCALE: 1:1000</span>
-                </div>
-              </div>
-              <TacticalMap
-                drones={state.drones}
-                jammingZones={state.jammingZones}
-                targets={state.targets}
-                meshLinks={state.meshLinks}
-              />
-            </div>
-          </div>
-
-          {/* Right Panel */}
-          <div className="col-span-12 lg:col-span-3 space-y-4">
-            <FeatureTabs drones={state.drones} targets={state.targets} />
-            <DroneList drones={state.drones} />
-          </div>
+        <div className="flex-1 mt-4">
+          <MainTabs
+            state={state}
+            metrics={metrics}
+            onToggleSimulation={toggleSimulation}
+            onToggleGPS={toggleGPS}
+            onToggleJamming={toggleJamming}
+            onReset={resetSimulation}
+          />
         </div>
       </div>
 
