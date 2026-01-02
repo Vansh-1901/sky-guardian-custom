@@ -206,12 +206,13 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
   }, [drones, jammingZones, targets, meshLinks, width, height]);
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full overflow-hidden">
       <canvas
         ref={canvasRef}
         width={width}
         height={height}
-        className="rounded-lg border border-border"
+        className="rounded-lg border border-border w-full h-full object-contain"
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
       />
       {/* Corner decorations */}
       <div className="absolute top-0 left-0 w-8 h-8 border-l-2 border-t-2 border-primary" />
