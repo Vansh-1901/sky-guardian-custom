@@ -6,7 +6,7 @@ import StatusPanel from '@/components/StatusPanel';
 import ControlPanel from '@/components/ControlPanel';
 import DroneList from '@/components/DroneList';
 import Legend from '@/components/Legend';
-import DecisionLog from '@/components/DecisionLog';
+import DecisionTaskbar from '@/components/DecisionTaskbar';
 
 const Index: React.FC = () => {
   const {
@@ -21,13 +21,13 @@ const Index: React.FC = () => {
   const metrics = getMetrics();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Scan line overlay */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
         <div className="scan-line w-full h-32" />
       </div>
 
-      <div className="container mx-auto p-4 space-y-4">
+      <div className="container mx-auto p-4 space-y-4 flex-1">
         <Header />
 
         <div className="grid grid-cols-12 gap-4">
@@ -50,7 +50,7 @@ const Index: React.FC = () => {
           </div>
 
           {/* Center - Tactical Map */}
-          <div className="col-span-12 lg:col-span-6 space-y-4">
+          <div className="col-span-12 lg:col-span-6">
             <div className="tactical-panel p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-tactical text-sm text-primary tracking-wider">
@@ -68,12 +68,6 @@ const Index: React.FC = () => {
                 meshLinks={state.meshLinks}
               />
             </div>
-            
-            {/* Decision Log below map */}
-            <DecisionLog 
-              drones={state.drones} 
-              isRunning={state.simulationRunning} 
-            />
           </div>
 
           {/* Right Panel */}
@@ -82,28 +76,34 @@ const Index: React.FC = () => {
             <Legend />
           </div>
         </div>
-
-        {/* Footer */}
-        <footer className="tactical-panel p-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <span>CHAKRAVYUH 1.0</span>
-              <span>|</span>
-              <span>GITACVPS005</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span>DECENTRALIZED SWARM INTELLIGENCE</span>
-              <span>|</span>
-              <span>GPS-DENIED OPERATIONS</span>
-              <span>|</span>
-              <span>SELF-HEALING MESH</span>
-            </div>
-            <div>
-              SKY-SHIELD SIMULATION v1.0
-            </div>
-          </div>
-        </footer>
       </div>
+
+      {/* AI Decision Taskbar - Fixed Bottom */}
+      <DecisionTaskbar 
+        drones={state.drones} 
+        isRunning={state.simulationRunning} 
+      />
+
+      {/* Footer */}
+      <footer className="tactical-panel mx-4 mb-4 p-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>CHAKRAVYUH 1.0</span>
+            <span>|</span>
+            <span>GITACVPS005</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span>DECENTRALIZED SWARM INTELLIGENCE</span>
+            <span>|</span>
+            <span>GPS-DENIED OPERATIONS</span>
+            <span>|</span>
+            <span>SELF-HEALING MESH</span>
+          </div>
+          <div>
+            SKY-SHIELD SIMULATION v1.0
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
