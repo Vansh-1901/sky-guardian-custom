@@ -7,6 +7,7 @@ import ControlPanel from '@/components/ControlPanel';
 import DroneList from '@/components/DroneList';
 import Legend from '@/components/Legend';
 import DecisionTaskbar from '@/components/DecisionTaskbar';
+import ArchitecturePanel from '@/components/ArchitecturePanel';
 
 const Index: React.FC = () => {
   const {
@@ -72,8 +73,8 @@ const Index: React.FC = () => {
 
           {/* Right Panel */}
           <div className="col-span-12 lg:col-span-3 space-y-4">
+            <ArchitecturePanel />
             <DroneList drones={state.drones} />
-            <Legend />
           </div>
         </div>
       </div>
