@@ -6,6 +6,7 @@ import StatusPanel from '@/components/StatusPanel';
 import ControlPanel from '@/components/ControlPanel';
 import DroneList from '@/components/DroneList';
 import Legend from '@/components/Legend';
+import DecisionLog from '@/components/DecisionLog';
 
 const Index: React.FC = () => {
   const {
@@ -49,7 +50,7 @@ const Index: React.FC = () => {
           </div>
 
           {/* Center - Tactical Map */}
-          <div className="col-span-12 lg:col-span-6">
+          <div className="col-span-12 lg:col-span-6 space-y-4">
             <div className="tactical-panel p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-tactical text-sm text-primary tracking-wider">
@@ -67,6 +68,12 @@ const Index: React.FC = () => {
                 meshLinks={state.meshLinks}
               />
             </div>
+            
+            {/* Decision Log below map */}
+            <DecisionLog 
+              drones={state.drones} 
+              isRunning={state.simulationRunning} 
+            />
           </div>
 
           {/* Right Panel */}
