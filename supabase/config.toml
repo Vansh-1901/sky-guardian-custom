@@ -1,1 +1,4 @@
 project_id = "uwzjkccbokxanqvxlczh"
+
+[functions.ai-swarm]
+verify_jwt = false
