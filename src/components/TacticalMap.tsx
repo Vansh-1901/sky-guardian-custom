@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Drone, JammingZone, Target, MeshLink } from '@/types/drone';
 
 interface TacticalMapProps {
@@ -6,8 +6,6 @@ interface TacticalMapProps {
   jammingZones: JammingZone[];
   targets: Target[];
   meshLinks: MeshLink[];
-  width?: number;
-  height?: number;
 }
 
 const TacticalMap: React.FC<TacticalMapProps> = ({
@@ -15,10 +13,28 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
   jammingZones,
   targets,
   meshLinks,
-  width = 800,
-  height = 600,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // Resize observer to track container size
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width: Math.floor(width), height: Math.floor(height) });
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,6 +43,12 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const { width, height } = dimensions;
+
+    // Scale factor for positioning elements (based on original 800x600)
+    const scaleX = width / 800;
+    const scaleY = height / 600;
+
     // Clear canvas
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, width, height);
@@ -34,13 +56,14 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     // Draw grid
     ctx.strokeStyle = 'rgba(0, 180, 216, 0.1)';
     ctx.lineWidth = 1;
-    for (let x = 0; x < width; x += 40) {
+    const gridSize = 40 * Math.min(scaleX, scaleY);
+    for (let x = 0; x < width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-    for (let y = 0; y < height; y += 40) {
+    for (let y = 0; y < height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -51,9 +74,13 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     jammingZones.forEach(zone => {
       if (!zone.active) return;
       
+      const scaledX = zone.center.x * scaleX;
+      const scaledY = zone.center.y * scaleY;
+      const scaledRadius = zone.radius * Math.min(scaleX, scaleY);
+      
       const gradient = ctx.createRadialGradient(
-        zone.center.x, zone.center.y, 0,
-        zone.center.x, zone.center.y, zone.radius
+        scaledX, scaledY, 0,
+        scaledX, scaledY, scaledRadius
       );
       gradient.addColorStop(0, `rgba(239, 68, 68, ${zone.intensity * 0.4})`);
       gradient.addColorStop(0.7, `rgba(239, 68, 68, ${zone.intensity * 0.2})`);
@@ -61,7 +88,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(zone.center.x, zone.center.y, zone.radius, 0, Math.PI * 2);
+      ctx.arc(scaledX, scaledY, scaledRadius, 0, Math.PI * 2);
       ctx.fill();
 
       // Pulsing border
@@ -73,9 +100,9 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
       // Jamming icon
       ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
-      ctx.font = '12px Share Tech Mono';
+      ctx.font = `${Math.max(10, 12 * Math.min(scaleX, scaleY))}px Share Tech Mono`;
       ctx.textAlign = 'center';
-      ctx.fillText('⚠ JAMMING', zone.center.x, zone.center.y);
+      ctx.fillText('⚠ JAMMING', scaledX, scaledY);
     });
 
     // Draw mesh links
@@ -91,8 +118,8 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       ctx.setLineDash(link.active ? [] : [3, 3]);
       
       ctx.beginPath();
-      ctx.moveTo(fromDrone.position.x, fromDrone.position.y);
-      ctx.lineTo(toDrone.position.x, toDrone.position.y);
+      ctx.moveTo(fromDrone.position.x * scaleX, fromDrone.position.y * scaleY);
+      ctx.lineTo(toDrone.position.x * scaleX, toDrone.position.y * scaleY);
       ctx.stroke();
       ctx.setLineDash([]);
     });
@@ -105,25 +132,29 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
           ? '#f59e0b' 
           : '#22c55e';
 
+      const scaledX = target.position.x * scaleX;
+      const scaledY = target.position.y * scaleY;
+      const markerSize = 10 * Math.min(scaleX, scaleY);
+
       // Target marker
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(target.position.x - 10, target.position.y);
-      ctx.lineTo(target.position.x + 10, target.position.y);
-      ctx.moveTo(target.position.x, target.position.y - 10);
-      ctx.lineTo(target.position.x, target.position.y + 10);
+      ctx.moveTo(scaledX - markerSize, scaledY);
+      ctx.lineTo(scaledX + markerSize, scaledY);
+      ctx.moveTo(scaledX, scaledY - markerSize);
+      ctx.lineTo(scaledX, scaledY + markerSize);
       ctx.stroke();
 
       // Target circle
       ctx.beginPath();
-      ctx.arc(target.position.x, target.position.y, 15, 0, Math.PI * 2);
+      ctx.arc(scaledX, scaledY, markerSize * 1.5, 0, Math.PI * 2);
       ctx.stroke();
 
       // Tracking indicator
       if (target.tracked) {
         ctx.beginPath();
-        ctx.arc(target.position.x, target.position.y, 20, 0, Math.PI * 2);
+        ctx.arc(scaledX, scaledY, markerSize * 2, 0, Math.PI * 2);
         ctx.stroke();
       }
     });
@@ -131,6 +162,10 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     // Draw drones
     drones.forEach(drone => {
       const { position, heading, status, role, inJammingZone } = drone;
+      
+      const scaledX = position.x * scaleX;
+      const scaledY = position.y * scaleY;
+      const droneScale = Math.min(scaleX, scaleY);
 
       // Status color
       let color = '#00f0ff'; // active
@@ -139,17 +174,17 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       if (status === 'destroyed') color = '#ef4444';
 
       ctx.save();
-      ctx.translate(position.x, position.y);
+      ctx.translate(scaledX, scaledY);
       ctx.rotate((heading * Math.PI) / 180);
 
       // Drone glow
       if (status === 'active') {
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 25);
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 25 * droneScale);
         glow.addColorStop(0, `${color}40`);
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.arc(0, 0, 25 * droneScale, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -158,10 +193,10 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(-8, -8);
-      ctx.lineTo(-4, 0);
-      ctx.lineTo(-8, 8);
+      ctx.moveTo(12 * droneScale, 0);
+      ctx.lineTo(-8 * droneScale, -8 * droneScale);
+      ctx.lineTo(-4 * droneScale, 0);
+      ctx.lineTo(-8 * droneScale, 8 * droneScale);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -170,10 +205,10 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
       // Role indicator
       ctx.fillStyle = color;
-      ctx.font = '10px Share Tech Mono';
+      ctx.font = `${Math.max(8, 10 * droneScale)}px Share Tech Mono`;
       ctx.textAlign = 'center';
       const roleChar = role[0].toUpperCase();
-      ctx.fillText(roleChar, position.x, position.y + 25);
+      ctx.fillText(roleChar, scaledX, scaledY + 25 * droneScale);
 
       // Status indicator for jammed drones
       if (inJammingZone) {
@@ -181,7 +216,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
         ctx.lineWidth = 1;
         ctx.setLineDash([2, 2]);
         ctx.beginPath();
-        ctx.arc(position.x, position.y, 18, 0, Math.PI * 2);
+        ctx.arc(scaledX, scaledY, 18 * droneScale, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -203,16 +238,15 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     ctx.arc(width / 2, height / 2, Math.max(width, height), 0, Math.PI * 2);
     ctx.fill();
 
-  }, [drones, jammingZones, targets, meshLinks, width, height]);
+  }, [drones, jammingZones, targets, meshLinks, dimensions]);
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full min-h-[300px]">
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
-        className="rounded-lg border border-border w-full h-full object-contain"
-        style={{ maxWidth: '100%', maxHeight: '100%' }}
+        width={dimensions.width}
+        height={dimensions.height}
+        className="rounded-lg border border-border absolute inset-0"
       />
       {/* Corner decorations */}
       <div className="absolute top-0 left-0 w-8 h-8 border-l-2 border-t-2 border-primary" />
