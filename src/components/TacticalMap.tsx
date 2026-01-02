@@ -1,5 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Drone, JammingZone, Target, MeshLink } from '@/types/drone';
+import { ZoomIn, ZoomOut, Move, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface TacticalMapProps {
   drones: Drone[];
@@ -17,6 +19,15 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+
+  const MIN_ZOOM = 0.5;
+  const MAX_ZOOM = 3;
 
   // Resize observer to track container size
   useEffect(() => {
@@ -36,6 +47,51 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     return () => resizeObserver.disconnect();
   }, []);
 
+  // Handle mouse wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev + delta)));
+  }, []);
+
+  // Handle mouse down for panning
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) { // Left click
+      setIsPanning(true);
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  // Handle mouse move for panning
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      const deltaX = e.clientX - lastMousePos.x;
+      const deltaY = e.clientY - lastMousePos.y;
+      setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+    }
+  }, [isPanning, lastMousePos]);
+
+  // Handle mouse up
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // Reset view
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // Zoom controls
+  const zoomIn = useCallback(() => {
+    setZoom(prev => Math.min(MAX_ZOOM, prev + 0.2));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoom(prev => Math.max(MIN_ZOOM, prev - 0.2));
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -45,17 +101,23 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
     const { width, height } = dimensions;
 
-    // Scale factor for positioning elements (based on original 800x600)
-    const scaleX = width / 800;
-    const scaleY = height / 600;
-
     // Clear canvas
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, width, height);
 
+    // Save context and apply transformations
+    ctx.save();
+    ctx.translate(width / 2 + pan.x, height / 2 + pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-width / 2, -height / 2);
+
+    // Scale factor for positioning elements (based on original 800x600)
+    const scaleX = width / 800;
+    const scaleY = height / 600;
+
     // Draw grid
     ctx.strokeStyle = 'rgba(0, 180, 216, 0.1)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / zoom;
     const gridSize = 40 * Math.min(scaleX, scaleY);
     for (let x = 0; x < width; x += gridSize) {
       ctx.beginPath();
@@ -93,7 +155,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
       // Pulsing border
       ctx.strokeStyle = `rgba(239, 68, 68, ${0.5 + Math.sin(Date.now() / 500) * 0.3})`;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / zoom;
       ctx.setLineDash([5, 5]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -114,7 +176,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       ctx.strokeStyle = link.active 
         ? `rgba(34, 197, 94, ${link.strength * 0.8})`
         : `rgba(251, 191, 36, ${link.strength * 0.5})`;
-      ctx.lineWidth = link.active ? 2 : 1;
+      ctx.lineWidth = (link.active ? 2 : 1) / zoom;
       ctx.setLineDash(link.active ? [] : [3, 3]);
       
       ctx.beginPath();
@@ -138,7 +200,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
       // Target marker
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / zoom;
       ctx.beginPath();
       ctx.moveTo(scaledX - markerSize, scaledY);
       ctx.lineTo(scaledX + markerSize, scaledY);
@@ -191,7 +253,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       // Drone body (triangle)
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / zoom;
       ctx.beginPath();
       ctx.moveTo(12 * droneScale, 0);
       ctx.lineTo(-8 * droneScale, -8 * droneScale);
@@ -213,7 +275,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       // Status indicator for jammed drones
       if (inJammingZone) {
         ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / zoom;
         ctx.setLineDash([2, 2]);
         ctx.beginPath();
         ctx.arc(scaledX, scaledY, 18 * droneScale, 0, Math.PI * 2);
@@ -222,7 +284,10 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       }
     });
 
-    // Draw scan effect
+    // Restore context before drawing scan effect (so it covers full canvas)
+    ctx.restore();
+
+    // Draw scan effect (on top, no transformation)
     const scanAngle = (Date.now() / 50) % 360;
     const scanGradient = ctx.createConicGradient(
       (scanAngle * Math.PI) / 180,
@@ -238,7 +303,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     ctx.arc(width / 2, height / 2, Math.max(width, height), 0, Math.PI * 2);
     ctx.fill();
 
-  }, [drones, jammingZones, targets, meshLinks, dimensions]);
+  }, [drones, jammingZones, targets, meshLinks, dimensions, zoom, pan]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full min-h-[300px]">
@@ -246,13 +311,56 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className="rounded-lg border border-border absolute inset-0"
+        className="rounded-lg border border-border absolute inset-0 cursor-grab active:cursor-grabbing"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       />
+      
+      {/* Zoom Controls */}
+      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm border-primary/30 hover:bg-primary/20"
+          onClick={zoomIn}
+          title="Zoom In"
+        >
+          <ZoomIn className="h-4 w-4 text-primary" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm border-primary/30 hover:bg-primary/20"
+          onClick={zoomOut}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4 w-4 text-primary" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm border-primary/30 hover:bg-primary/20"
+          onClick={resetView}
+          title="Reset View"
+        >
+          <RotateCcw className="h-4 w-4 text-primary" />
+        </Button>
+      </div>
+
+      {/* Zoom indicator */}
+      <div className="absolute bottom-2 right-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded border border-primary/30 text-xs font-tactical text-primary z-10">
+        <Move className="h-3 w-3 inline mr-1" />
+        {Math.round(zoom * 100)}%
+      </div>
+
       {/* Corner decorations */}
-      <div className="absolute top-0 left-0 w-8 h-8 border-l-2 border-t-2 border-primary" />
-      <div className="absolute top-0 right-0 w-8 h-8 border-r-2 border-t-2 border-primary" />
-      <div className="absolute bottom-0 left-0 w-8 h-8 border-l-2 border-b-2 border-primary" />
-      <div className="absolute bottom-0 right-0 w-8 h-8 border-r-2 border-b-2 border-primary" />
+      <div className="absolute top-0 left-0 w-8 h-8 border-l-2 border-t-2 border-primary pointer-events-none" />
+      <div className="absolute top-0 right-0 w-8 h-8 border-r-2 border-t-2 border-primary pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-8 h-8 border-l-2 border-b-2 border-primary pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-8 h-8 border-r-2 border-b-2 border-primary pointer-events-none" />
     </div>
   );
 };
