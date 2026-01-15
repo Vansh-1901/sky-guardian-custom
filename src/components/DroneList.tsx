@@ -1,10 +1,10 @@
 import React from 'react';
 import { Drone } from '@/types/drone';
-import { 
-  Navigation, 
-  Wifi, 
-  WifiOff, 
-  Battery, 
+import {
+  Navigation,
+  Wifi,
+  WifiOff,
+  Battery,
   Crosshair,
   Radio,
   Eye,
@@ -49,84 +49,101 @@ const DroneList: React.FC<DroneListProps> = ({ drones }) => {
       </h2>
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-border">
-        {drones.map((drone) => (
-          <div 
-            key={drone.id}
-            className={`p-3 rounded-lg border transition-all ${
-              drone.status === 'active' 
-                ? 'bg-muted/30 border-border hover:border-primary/50' 
-                : drone.status === 'jammed'
-                  ? 'bg-tactical-amber/5 border-tactical-amber/30'
-                  : 'bg-muted/10 border-border/50'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded ${getStatusColor(drone.status)} bg-current/10`}>
-                  {getRoleIcon(drone.role)}
+        {drones.map((drone) => {
+          // Check if drone is receiving live updates (< 2s old)
+          const isLive = drone.isLiveDevice && drone.lastLiveUpdate && (Date.now() - drone.lastLiveUpdate < 2000);
+
+          return (
+            <div
+              key={drone.id}
+              className={`p-3 rounded-lg border transition-all ${drone.isLiveDevice && isLive
+                ? 'bg-tactical-green/10 border-tactical-green hover:border-tactical-green'
+                : drone.isLiveDevice && !isLive
+                  ? 'bg-tactical-amber/10 border-tactical-amber hover:border-tactical-amber'
+                  : drone.status === 'active'
+                    ? 'bg-muted/30 border-border hover:border-primary/50'
+                    : drone.status === 'jammed'
+                      ? 'bg-tactical-amber/5 border-tactical-amber/30'
+                      : 'bg-muted/10 border-border/50'
+                }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded ${getStatusColor(drone.status)} bg-current/10`}>
+                    {getRoleIcon(drone.role)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">
+                      {drone.isLiveDevice ? 'PROXY-DRONE-01' : `${drone.role.toUpperCase()}-${drone.id.slice(0, 4).toUpperCase()}`}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`text-xs ${getStatusColor(drone.status)}`}>
+                        {drone.status.toUpperCase()}
+                      </div>
+                      {drone.isLiveDevice && (
+                        <div className={`text-xs px-1.5 py-0.5 rounded ${isLive
+                          ? 'bg-tactical-green/20 text-tactical-green'
+                          : 'bg-tactical-amber/20 text-tactical-amber'
+                          }`}>
+                          {isLive ? 'LIVE DEVICE' : 'SIMULATION MODE'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {drone.gpsAvailable ? (
+                    <Wifi className="w-3 h-3 text-tactical-green" />
+                  ) : (
+                    <WifiOff className="w-3 h-3 text-tactical-red" />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">POS</div>
+                  <div className="font-mono">
+                    {Math.round(drone.position.x)},{Math.round(drone.position.y)}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium">
-                    {drone.role.toUpperCase()}-{drone.id.slice(0, 4).toUpperCase()}
-                  </div>
-                  <div className={`text-xs ${getStatusColor(drone.status)}`}>
-                    {drone.status.toUpperCase()}
-                  </div>
+                  <div className="text-muted-foreground">HDG</div>
+                  <div className="font-mono">{Math.round(drone.heading)}°</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">PEERS</div>
+                  <div className="font-mono">{drone.connectedPeers.length}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {drone.gpsAvailable ? (
-                  <Wifi className="w-3 h-3 text-tactical-green" />
-                ) : (
-                  <WifiOff className="w-3 h-3 text-tactical-red" />
-                )}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <div className="text-muted-foreground">POS</div>
-                <div className="font-mono">
-                  {Math.round(drone.position.x)},{Math.round(drone.position.y)}
+              <div className="mt-2 flex items-center gap-2">
+                <Battery className={`w-3 h-3 ${drone.battery === null ? 'text-muted-foreground' : getBatteryColor(drone.battery)}`} />
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${drone.battery === null ? 'bg-muted-foreground' :
+                      drone.battery < 20 ? 'bg-tactical-red' :
+                        drone.battery < 50 ? 'bg-tactical-amber' : 'bg-tactical-green'
+                      }`}
+                    style={{ width: drone.battery === null ? '100%' : `${drone.battery}%` }}
+                  />
                 </div>
+                <span className={`text-xs ${drone.battery === null ? 'text-muted-foreground' : getBatteryColor(drone.battery)}`}>
+                  {drone.battery === null ? 'UNKNOWN' : `${Math.round(drone.battery)}%`}
+                </span>
               </div>
-              <div>
-                <div className="text-muted-foreground">HDG</div>
-                <div className="font-mono">{Math.round(drone.heading)}°</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">PEERS</div>
-                <div className="font-mono">{drone.connectedPeers.length}</div>
-              </div>
-            </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <Battery className={`w-3 h-3 ${getBatteryColor(drone.battery)}`} />
-              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all ${
-                    drone.battery < 20 ? 'bg-tactical-red' :
-                    drone.battery < 50 ? 'bg-tactical-amber' : 'bg-tactical-green'
-                  }`}
-                  style={{ width: `${drone.battery}%` }}
-                />
-              </div>
-              <span className={`text-xs ${getBatteryColor(drone.battery)}`}>
-                {Math.round(drone.battery)}%
-              </span>
-            </div>
-
-            {drone.threatLevel !== 'none' && (
-              <div className={`mt-2 text-xs px-2 py-1 rounded ${
-                drone.threatLevel === 'high' || drone.threatLevel === 'critical'
+              {drone.threatLevel !== 'none' && (
+                <div className={`mt-2 text-xs px-2 py-1 rounded ${drone.threatLevel === 'high' || drone.threatLevel === 'critical'
                   ? 'bg-tactical-red/20 text-tactical-red'
                   : 'bg-tactical-amber/20 text-tactical-amber'
-              }`}>
-                THREAT: {drone.threatLevel.toUpperCase()}
-              </div>
-            )}
-          </div>
-        ))}
+                  }`}>
+                  THREAT: {drone.threatLevel.toUpperCase()}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

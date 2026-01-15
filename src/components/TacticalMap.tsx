@@ -19,7 +19,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  
+
   // Zoom and pan state
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -135,11 +135,11 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     // Draw jamming zones
     jammingZones.forEach(zone => {
       if (!zone.active) return;
-      
+
       const scaledX = zone.center.x * scaleX;
       const scaledY = zone.center.y * scaleY;
       const scaledRadius = zone.radius * Math.min(scaleX, scaleY);
-      
+
       const gradient = ctx.createRadialGradient(
         scaledX, scaledY, 0,
         scaledX, scaledY, scaledRadius
@@ -147,7 +147,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       gradient.addColorStop(0, `rgba(239, 68, 68, ${zone.intensity * 0.4})`);
       gradient.addColorStop(0.7, `rgba(239, 68, 68, ${zone.intensity * 0.2})`);
       gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      
+
       ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.arc(scaledX, scaledY, scaledRadius, 0, Math.PI * 2);
@@ -173,12 +173,12 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       const toDrone = drones.find(d => d.id === link.to);
       if (!fromDrone || !toDrone) return;
 
-      ctx.strokeStyle = link.active 
+      ctx.strokeStyle = link.active
         ? `rgba(34, 197, 94, ${link.strength * 0.8})`
         : `rgba(251, 191, 36, ${link.strength * 0.5})`;
       ctx.lineWidth = (link.active ? 2 : 1) / zoom;
       ctx.setLineDash(link.active ? [] : [3, 3]);
-      
+
       ctx.beginPath();
       ctx.moveTo(fromDrone.position.x * scaleX, fromDrone.position.y * scaleY);
       ctx.lineTo(toDrone.position.x * scaleX, toDrone.position.y * scaleY);
@@ -188,10 +188,10 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
     // Draw targets
     targets.forEach(target => {
-      const color = target.type === 'hostile' 
-        ? '#ef4444' 
-        : target.type === 'unknown' 
-          ? '#f59e0b' 
+      const color = target.type === 'hostile'
+        ? '#ef4444'
+        : target.type === 'unknown'
+          ? '#f59e0b'
           : '#22c55e';
 
       const scaledX = target.position.x * scaleX;
@@ -224,7 +224,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     // Draw drones
     drones.forEach(drone => {
       const { position, heading, status, role, inJammingZone } = drone;
-      
+
       const scaledX = position.x * scaleX;
       const scaledY = position.y * scaleY;
       const droneScale = Math.min(scaleX, scaleY);
@@ -235,18 +235,27 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
       if (status === 'offline') color = '#6b7280';
       if (status === 'destroyed') color = '#ef4444';
 
+      // Live device gets bright green color when receiving live updates (< 2s old)
+      const isLive = drone.isLiveDevice && drone.lastLiveUpdate && (Date.now() - drone.lastLiveUpdate < 2000);
+      if (isLive) {
+        color = '#22c55e'; // bright green
+      }
+
       ctx.save();
       ctx.translate(scaledX, scaledY);
       ctx.rotate((heading * Math.PI) / 180);
 
-      // Drone glow
+      // Drone glow (pulsing for live device)
       if (status === 'active') {
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 25 * droneScale);
+        const glowRadius = isLive
+          ? 25 * droneScale * (1 + Math.sin(Date.now() / 300) * 0.3) // Pulsing
+          : 25 * droneScale;
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
         glow.addColorStop(0, `${color}40`);
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, 25 * droneScale, 0, Math.PI * 2);
+        ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -265,12 +274,17 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
 
       ctx.restore();
 
-      // Role indicator
+      // Role indicator or LIVE label
       ctx.fillStyle = color;
       ctx.font = `${Math.max(8, 10 * droneScale)}px Share Tech Mono`;
       ctx.textAlign = 'center';
-      const roleChar = role[0].toUpperCase();
-      ctx.fillText(roleChar, scaledX, scaledY + 25 * droneScale);
+
+      if (drone.isLiveDevice) {
+        ctx.fillText(isLive ? 'LIVE' : 'SIM', scaledX, scaledY + 25 * droneScale);
+      } else {
+        const roleChar = role[0].toUpperCase();
+        ctx.fillText(roleChar, scaledX, scaledY + 25 * droneScale);
+      }
 
       // Status indicator for jammed drones
       if (inJammingZone) {
@@ -297,13 +311,19 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
     scanGradient.addColorStop(0, 'rgba(0, 240, 255, 0.1)');
     scanGradient.addColorStop(0.1, 'rgba(0, 240, 255, 0)');
     scanGradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
-    
+
     ctx.fillStyle = scanGradient;
     ctx.beginPath();
     ctx.arc(width / 2, height / 2, Math.max(width, height), 0, Math.PI * 2);
     ctx.fill();
 
   }, [drones, jammingZones, targets, meshLinks, dimensions, zoom, pan]);
+
+  // Find live device drone and check if it's receiving live updates
+  const liveDevice = drones.find(d => d.isLiveDevice);
+  const isLiveMode = liveDevice?.lastLiveUpdate && (Date.now() - liveDevice.lastLiveUpdate < 2000);
+  const showLiveBadge = liveDevice && isLiveMode;
+  const showSimBadge = liveDevice && !isLiveMode;
 
   return (
     <div ref={containerRef} className="relative w-full h-full min-h-[300px]">
@@ -318,7 +338,7 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
-      
+
       {/* Zoom Controls */}
       <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
         <Button
@@ -349,6 +369,23 @@ const TacticalMap: React.FC<TacticalMapProps> = ({
           <RotateCcw className="h-4 w-4 text-primary" />
         </Button>
       </div>
+
+      {/* Live Device Status Badge */}
+      {showLiveBadge && (
+        <div className="absolute top-2 left-2 px-3 py-1.5 bg-tactical-green/20 backdrop-blur-sm rounded border border-tactical-green text-xs font-tactical text-tactical-green z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-tactical-green animate-pulse" />
+            LIVE DEVICE CONNECTED
+          </div>
+        </div>
+      )}
+
+      {/* Simulation Mode Badge */}
+      {showSimBadge && (
+        <div className="absolute top-2 left-2 px-3 py-1.5 bg-tactical-amber/20 backdrop-blur-sm rounded border border-tactical-amber text-xs font-tactical text-tactical-amber z-10">
+          SIMULATION MODE (WASD)
+        </div>
+      )}
 
       {/* Zoom indicator */}
       <div className="absolute bottom-2 right-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded border border-primary/30 text-xs font-tactical text-primary z-10">

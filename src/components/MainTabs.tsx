@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Settings, 
-  Map, 
-  Layers, 
-  Activity, 
-  Users, 
-  Sparkles 
+import {
+  Settings,
+  Map,
+  Layers,
+  Activity,
+  Users,
+  Sparkles
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ControlPanel from '@/components/ControlPanel';
@@ -153,11 +153,10 @@ const MainTabs: React.FC<MainTabsProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded text-xs font-tactical whitespace-nowrap transition-all ${
-                activeTab === tab.id
-                  ? 'bg-primary/20 text-primary border border-primary/40 tactical-glow'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-primary/10 border border-transparent'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded text-xs font-tactical whitespace-nowrap transition-all ${activeTab === tab.id
+                ? 'bg-primary/20 text-primary border border-primary/40 tactical-glow'
+                : 'text-muted-foreground hover:text-foreground hover:bg-primary/10 border border-transparent'
+                }`}
             >
               <tab.icon className="w-4 h-4" />
               <span className="hidden sm:inline">{tab.label}</span>

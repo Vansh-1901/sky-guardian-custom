@@ -18,7 +18,7 @@ export interface Drone {
   velocity: Velocity;
   role: DroneRole;
   status: DroneStatus;
-  battery: number;
+  battery: number | null; // null = UNKNOWN (battery API unavailable)
   signalStrength: number;
   gpsAvailable: boolean;
   inJammingZone: boolean;
@@ -28,6 +28,8 @@ export interface Drone {
   lastKnownPosition: Position;
   heading: number;
   altitude: number;
+  isLiveDevice?: boolean; // true for PROXY-DRONE-01
+  lastLiveUpdate?: number; // Timestamp of last live data update
 }
 
 export interface JammingZone {

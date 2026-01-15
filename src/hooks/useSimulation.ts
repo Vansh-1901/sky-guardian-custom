@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { 
-  Drone, 
-  JammingZone, 
-  Target, 
-  MeshLink, 
-  SimulationState, 
+import {
+  Drone,
+  JammingZone,
+  Target,
+  MeshLink,
+  SimulationState,
   SimulationMetrics,
   Position,
   DroneRole
@@ -20,25 +20,52 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const createInitialDrones = (): Drone[] => {
   const roles: DroneRole[] = ['scout', 'relay', 'tracker', 'interceptor'];
-  return Array.from({ length: DRONE_COUNT }, (_, i) => ({
-    id: generateId(),
-    position: {
-      x: 100 + Math.random() * 200,
-      y: 200 + Math.random() * 200,
-    },
+  const drones: Drone[] = [];
+
+  // First drone is PROXY-DRONE-01 (live device)
+  drones.push({
+    id: 'PROXY-DRONE-01',
+    position: { x: 400, y: 300 }, // Center of map
     velocity: { vx: 0, vy: 0 },
-    role: roles[i % roles.length],
+    role: 'scout',
     status: 'active',
-    battery: 85 + Math.random() * 15,
-    signalStrength: 0.9 + Math.random() * 0.1,
+    battery: null, // Will show UNKNOWN until device connects
+    signalStrength: 1,
     gpsAvailable: true,
     inJammingZone: false,
     threatLevel: 'none',
     connectedPeers: [],
-    lastKnownPosition: { x: 100 + Math.random() * 200, y: 200 + Math.random() * 200 },
-    heading: Math.random() * 360,
-    altitude: 100 + Math.random() * 50,
-  }));
+    lastKnownPosition: { x: 400, y: 300 },
+    heading: 0,
+    altitude: 100,
+    isLiveDevice: true,
+  });
+
+  // Add remaining simulated drones
+  for (let i = 1; i < DRONE_COUNT; i++) {
+    drones.push({
+      id: generateId(),
+      position: {
+        x: 100 + Math.random() * 200,
+        y: 200 + Math.random() * 200,
+      },
+      velocity: { vx: 0, vy: 0 },
+      role: roles[i % roles.length],
+      status: 'active',
+      battery: 85 + Math.random() * 15,
+      signalStrength: 0.9 + Math.random() * 0.1,
+      gpsAvailable: true,
+      inJammingZone: false,
+      threatLevel: 'none',
+      connectedPeers: [],
+      lastKnownPosition: { x: 100 + Math.random() * 200, y: 200 + Math.random() * 200 },
+      heading: Math.random() * 360,
+      altitude: 100 + Math.random() * 50,
+      isLiveDevice: false,
+    });
+  }
+
+  return drones;
 };
 
 const createInitialJammingZones = (): JammingZone[] => [
@@ -94,6 +121,9 @@ export const useSimulation = () => {
     missionStatus: 'planning',
   });
 
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [keyboardState, setKeyboardState] = useState({ w: false, a: false, s: false, d: false });
+
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
 
@@ -119,11 +149,45 @@ export const useSimulation = () => {
     return links;
   }, []);
 
-  const updateDroneAI = useCallback((drone: Drone, allDrones: Drone[], jammingZones: JammingZone[], targets: Target[], gpsEnabled: boolean): Drone => {
+  const updateDroneAI = useCallback((drone: Drone, allDrones: Drone[], jammingZones: JammingZone[], targets: Target[], gpsEnabled: boolean, deviceConnected: boolean, keyboardState: any): Drone => {
+    // Skip AI for live device when device is connected
+    if (drone.isLiveDevice && deviceConnected) {
+      return drone; // Position/heading controlled by WebSocket
+    }
+
+    // Keyboard fallback for live device when disconnected
+    if (drone.isLiveDevice && !deviceConnected) {
+      const speed = 3;
+      let newVelocity = { vx: 0, vy: 0 };
+      let newHeading = drone.heading;
+
+      if (keyboardState.w) newVelocity.vy = -speed;
+      if (keyboardState.s) newVelocity.vy = speed;
+      if (keyboardState.a) newVelocity.vx = -speed;
+      if (keyboardState.d) newVelocity.vx = speed;
+
+      // Update heading based on movement direction
+      if (newVelocity.vx !== 0 || newVelocity.vy !== 0) {
+        newHeading = Math.atan2(newVelocity.vy, newVelocity.vx) * (180 / Math.PI);
+      }
+
+      const newPosition = {
+        x: Math.max(20, Math.min(MAP_WIDTH - 20, drone.position.x + newVelocity.vx)),
+        y: Math.max(20, Math.min(MAP_HEIGHT - 20, drone.position.y + newVelocity.vy)),
+      };
+
+      return {
+        ...drone,
+        position: newPosition,
+        velocity: newVelocity,
+        heading: newHeading,
+        lastKnownPosition: newPosition,
+      };
+    }
     let { position, velocity, heading } = drone;
-    
+
     // Check jamming zone
-    const inJamming = jammingZones.some(zone => 
+    const inJamming = jammingZones.some(zone =>
       zone.active && distance(position, zone.center) < zone.radius
     );
 
@@ -132,7 +196,7 @@ export const useSimulation = () => {
 
     // Determine threat level
     let threatLevel = drone.threatLevel;
-    const nearbyThreats = targets.filter(t => 
+    const nearbyThreats = targets.filter(t =>
       t.type === 'hostile' && distance(position, t.position) < 200
     );
     if (nearbyThreats.length > 0) {
@@ -203,7 +267,7 @@ export const useSimulation = () => {
       const dy = targetPos.y - position.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const speed = drone.role === 'interceptor' ? 2 : 1;
-      
+
       if (dist > 5) {
         velocity = {
           vx: (dx / dist) * speed,
@@ -228,8 +292,8 @@ export const useSimulation = () => {
     const battery = Math.max(0, drone.battery - 0.001);
 
     // Update signal strength based on jamming
-    const signalStrength = inJamming 
-      ? Math.max(0.1, drone.signalStrength - 0.01) 
+    const signalStrength = inJamming
+      ? Math.max(0.1, drone.signalStrength - 0.01)
       : Math.min(1, drone.signalStrength + 0.005);
 
     return {
@@ -243,7 +307,7 @@ export const useSimulation = () => {
       lastKnownPosition,
       battery,
       signalStrength,
-      status: battery <= 0 ? 'offline' : (inJamming ? 'jammed' : 'active'),
+      status: battery !== null && battery <= 0 ? 'offline' : (inJamming ? 'jammed' : 'active'),
     };
   }, []);
 
@@ -267,6 +331,93 @@ export const useSimulation = () => {
     });
   }, []);
 
+  // Update live drone from WebSocket data
+  const updateLiveDrone = useCallback((liveData: { id: string; position?: { x: number; y: number }; heading?: number; battery?: number | null; online: boolean }) => {
+    console.log('🔧 updateLiveDrone called with:', liveData);
+    console.log('🔍 Looking for drone with ID:', liveData.id);
+
+    setState(prev => {
+      console.log('📋 Current drones:', prev.drones.map(d => ({ id: d.id, isLiveDevice: d.isLiveDevice })));
+
+      const updatedDrones = prev.drones.map(drone => {
+        if (drone.id === liveData.id) {
+          console.log('✅ Found PROXY-DRONE-01!');
+          console.log('📊 Current drone state:', {
+            id: drone.id,
+            isLiveDevice: drone.isLiveDevice,
+            position: drone.position,
+            heading: drone.heading,
+            battery: drone.battery,
+            lastLiveUpdate: drone.lastLiveUpdate
+          });
+
+          const updated = {
+            ...drone,
+            position: liveData.position || drone.position,
+            heading: liveData.heading !== undefined ? liveData.heading : drone.heading,
+            battery: liveData.battery !== undefined ? liveData.battery : drone.battery,
+            status: liveData.online ? 'active' as const : 'offline' as const,
+            lastKnownPosition: liveData.position || drone.lastKnownPosition,
+            lastLiveUpdate: Date.now(), // Set timestamp for live mode detection
+            isLiveDevice: true, // Explicitly preserve this flag
+          };
+
+          console.log('🆕 Updated drone state:', {
+            id: updated.id,
+            isLiveDevice: updated.isLiveDevice,
+            position: updated.position,
+            heading: updated.heading,
+            battery: updated.battery,
+            lastLiveUpdate: updated.lastLiveUpdate,
+            timeSinceUpdate: 0
+          });
+
+          return updated;
+        }
+        return drone;
+      });
+
+      const proxyDrone = updatedDrones.find(d => d.id === 'PROXY-DRONE-01');
+      console.log('🔄 State updated with lastLiveUpdate timestamp');
+      console.log('🎯 PROXY-DRONE-01 after update:', {
+        found: !!proxyDrone,
+        isLiveDevice: proxyDrone?.isLiveDevice,
+        lastLiveUpdate: proxyDrone?.lastLiveUpdate,
+        timeSinceUpdate: proxyDrone?.lastLiveUpdate ? Date.now() - proxyDrone.lastLiveUpdate : 'N/A'
+      });
+
+      return {
+        ...prev,
+        drones: updatedDrones,
+      };
+    });
+  }, []);
+
+  // Keyboard event handlers for fallback mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd'].includes(key)) {
+        setKeyboardState(prev => ({ ...prev, [key]: true }));
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd'].includes(key)) {
+        setKeyboardState(prev => ({ ...prev, [key]: false }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const simulate = useCallback((timestamp: number) => {
     if (!lastTimeRef.current) lastTimeRef.current = timestamp;
     const delta = timestamp - lastTimeRef.current;
@@ -278,7 +429,7 @@ export const useSimulation = () => {
         if (!prev.simulationRunning) return prev;
 
         const updatedDrones = prev.drones.map(drone =>
-          updateDroneAI(drone, prev.drones, prev.jammingZones, prev.targets, prev.gpsEnabled)
+          updateDroneAI(drone, prev.drones, prev.jammingZones, prev.targets, prev.gpsEnabled, deviceConnected, keyboardState)
         );
 
         const updatedTargets = updateTargets(prev.targets);
@@ -353,7 +504,7 @@ export const useSimulation = () => {
     const jammedDrones = state.drones.filter(d => d.status === 'jammed').length;
     const activeLinks = state.meshLinks.filter(l => l.active).length;
     const totalPossibleLinks = (state.drones.length * (state.drones.length - 1)) / 2;
-    const avgBattery = state.drones.reduce((sum, d) => sum + d.battery, 0) / state.drones.length;
+    const avgBattery = state.drones.reduce((sum, d) => sum + (d.battery || 0), 0) / state.drones.length;
 
     return {
       activeDrones,
@@ -373,5 +524,8 @@ export const useSimulation = () => {
     toggleJamming,
     resetSimulation,
     getMetrics,
+    updateLiveDrone,
+    setDeviceConnected,
+    deviceConnected,
   };
 };

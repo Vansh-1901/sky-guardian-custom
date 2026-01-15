@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSimulation } from '@/hooks/useSimulation';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import Header from '@/components/Header';
 import MainTabs from '@/components/MainTabs';
 
@@ -11,7 +12,25 @@ const Index: React.FC = () => {
     toggleJamming,
     resetSimulation,
     getMetrics,
+    updateLiveDrone,
+    setDeviceConnected,
   } = useSimulation();
+
+  // WebSocket connection for live device
+  const { connected: wsConnected } = useWebSocket((liveData) => {
+    console.log('📥 Index received live data:', liveData);
+    console.log('🎯 Drone ID:', liveData.id);
+    console.log('📍 Position:', liveData.position);
+    console.log('🧭 Heading:', liveData.heading);
+    console.log('🔋 Battery:', liveData.battery);
+    console.log('🟢 Online:', liveData.online);
+
+    console.log('🔄 Calling updateLiveDrone...');
+    updateLiveDrone(liveData);
+
+    console.log('🔄 Calling setDeviceConnected:', liveData.online);
+    setDeviceConnected(liveData.online);
+  });
 
   const metrics = getMetrics();
 

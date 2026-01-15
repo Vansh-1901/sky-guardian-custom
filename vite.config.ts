@@ -7,7 +7,10 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 8081,
+    allowedHosts: [
+      'planimetrical-elenore-nondefined.ngrok-free.dev' // Update with actual ngrok domain
+    ]
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
