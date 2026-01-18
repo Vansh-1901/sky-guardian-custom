@@ -1,105 +1,69 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
 
-interface LiveDroneData {
-    id: string;
-    position?: { x: number; y: number };
-    heading?: number;
-    battery?: number | null;
-    online: boolean;
+export interface LiveDroneData {
+  id: string;
+  position?: { x: number; y: number };
+  heading?: number;
+  battery?: number | null;
+  online: boolean;
 }
 
-interface UseWebSocketReturn {
-    connected: boolean;
-    deviceConnected: boolean;
-    liveDroneData: LiveDroneData | null;
-}
+export const useWebSocket = (onDroneUpdate: (data: LiveDroneData) => void) => {
+  const [connected, setConnected] = useState(false);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [liveDroneData, setLiveDroneData] = useState<LiveDroneData | null>(
+    null,
+  );
 
-export const useWebSocket = (onDroneUpdate: (data: LiveDroneData) => void): UseWebSocketReturn => {
-    const [connected, setConnected] = useState(false);
-    const [deviceConnected, setDeviceConnected] = useState(false);
-    const [liveDroneData, setLiveDroneData] = useState<LiveDroneData | null>(null);
-    const wsRef = useRef<WebSocket | null>(null);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const wsRef = useRef<WebSocket | null>(null);
 
-    const connect = useCallback(() => {
-        try {
-            const ws = new WebSocket('wss://revolution-super-commentary-kinds.trycloudflare.com');
+  const WS_URL = import.meta.env.VITE_WS_URL; // FIXED
 
-            ws.onopen = () => {
-                console.log('Dashboard connected to WebSocket server');
-                setConnected(true);
-                // Identify as dashboard
-                ws.send(JSON.stringify({ type: 'client-type', payload: 'dashboard' }));
-            };
+  const connect = useCallback(() => {
+    console.log("🖥 Dashboard connecting →", WS_URL);
 
-            ws.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    console.log('📡 WebSocket message received:', message);
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
 
-                    if (message.type === 'connection-status') {
-                        console.log('🔌 Connection status:', message.payload.deviceConnected);
-                        setDeviceConnected(message.payload.deviceConnected);
-                    } else if (message.type === 'drone-update') {
-                        console.log('🚁 LIVE DRONE UPDATE:', message.payload);
-                        console.log('📊 Payload structure:', {
-                            id: message.payload.id,
-                            position: message.payload.position,
-                            heading: message.payload.heading,
-                            battery: message.payload.battery,
-                            online: message.payload.online
-                        });
-                        const data = message.payload as LiveDroneData;
-                        setLiveDroneData(data);
-                        // Set device connected when we receive live data
-                        if (data.online) {
-                            console.log('✅ Setting deviceConnected = true');
-                            setDeviceConnected(true);
-                        }
-                        console.log('📤 Calling onDroneUpdate callback...');
-                        onDroneUpdate(data);
-                    }
-                } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
-                }
-            };
-            ws.onclose = () => {
-                console.log('Dashboard disconnected from WebSocket server');
-                setConnected(false);
-                setDeviceConnected(false);
+    ws.onopen = () => {
+      console.log("🖥 Dashboard connected");
+      setConnected(true);
 
-                // Simple reconnect after 2 seconds
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    connect();
-                }, 2000);
-            };
+      ws.send(
+        JSON.stringify({
+          type: "client-type",
+          payload: "dashboard",
+        }),
+      );
+    };
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
 
-            wsRef.current = ws;
-        } catch (error) {
-            console.error('Failed to connect to WebSocket:', error);
-            // Retry connection
-            reconnectTimeoutRef.current = setTimeout(() => {
-                connect();
-            }, 2000);
-        }
-    }, [onDroneUpdate]);
+      if (msg.type === "connection-status") {
+        setDeviceConnected(msg.payload.deviceConnected);
+      }
 
-    useEffect(() => {
-        connect();
+      if (msg.type === "drone-update") {
+        setLiveDroneData(msg.payload);
+        setDeviceConnected(true);
+        onDroneUpdate(msg.payload);
+      }
+    };
+    ;
+    ws.onclose = () => {
+      console.log("🔌 WS closed, reconnecting...");
+      setConnected(false);
+      setDeviceConnected(false);
 
-        return () => {
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
-        };
-    }, [connect]);
+      setTimeout(connect, 2000);
+    };
+  }, [WS_URL, onDroneUpdate]);
 
-    return { connected, deviceConnected, liveDroneData };
+  useEffect(() => {
+    connect();
+    return () => wsRef.current?.close();
+  }, [connect]);
+
+  return { connected, deviceConnected, liveDroneData };
 };
